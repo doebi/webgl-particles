@@ -5,31 +5,21 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <script src="lib/liquidfun.min.js"></script>
     <script src="lib/igloo.min.js"></script>
+    <script src="lib/loadrube.em.js"></script>
     <script src="src/fps.js"></script>
     <script src="src/utility.js"></script>
     <script src="src/bottle.js"></script>
     <script src="src/liquid.js"></script>
+    <style type="text/css" media="screen">
+        body {
+            background-color: #000;
+            color: #FFF;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+    </style>
   </head>
-  <body style="background-color: black; color: white">
-      <canvas id="display" width="500" height="700"></canvas>
-      <li>
-        Do a physics simulation of balls in a container
-      </li>
-      <li>
-        Render the simulation onto a raster
-      </li>
-      <li>
-        Blur the image
-        (<label>
-          <input id="doBlur" type="checkbox" checked/> enable
-        </label>)
-      </li>
-      <li>
-        Apply a threshold
-        (<label>
-          <input id="doThreshold" type="checkbox" checked/> enable
-        </label>)
-      </li>
-    </ol>
+  <body>
+      <canvas id="display"></canvas>
   </body>
 </html>

@@ -1,22 +1,31 @@
-var bottle = null;
+var scene = null;
 window.addEventListener('load', function() {
-    bottle = new Bottle(document.getElementById('display'));
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    var canvas = document.getElementById('display');
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    canvas.width = w;
+    canvas.height = h;
+    scene = new Scene(canvas);
     function step() {
-        bottle.step();
+        scene.step();
     }
     function render() {
-        bottle.render();
+        scene.render();
         window.requestAnimationFrame(render);
     }
     window.requestAnimationFrame(render);
-    setInterval(step, 1000 / Bottle.FPS);
+    setInterval(step, 1000 / Scene.FPS);
 
+    /*
     document.getElementById('doBlur')
         .addEventListener('change', function() {
-            bottle.doBlur = this.checked;
+            scene.doBlur = this.checked;
         });
     document.getElementById('doThreshold')
         .addEventListener('change', function() {
-            bottle.doThreshold = this.checked;
+            scene.doThreshold = this.checked;
         });
+    */
 });

@@ -1,6 +1,6 @@
-function Bottle(canvas) {
-    this.width = Bottle.WIDTH;
-    this.height = Bottle.HEIGHT;
+function Scene(canvas) {
+    this.width = canvas.width / 10;
+    this.height = canvas.height / 10;
     this.time = 0;
     this.threshold = 0.3;
 
@@ -10,19 +10,41 @@ function Bottle(canvas) {
     this.doBlur = true;
     this.doThreshold = true;
 
-    this.world = new B.World(Bottle.GRAVITY, false);
+    this.world = new B.World(Scene.GRAVITY, false);
     this.polys = [];
     this.buildOuter();
-    this.addSpike(new B.Vec2( Bottle.SPIKE_EXTENT, 0),  1);
-    this.addSpike(new B.Vec2(-Bottle.SPIKE_EXTENT, 0), -1);
+    this.addSpike(new B.Vec2( Scene.SPIKE_EXTENT, 0),  1);
+    this.addSpike(new B.Vec2(-Scene.SPIKE_EXTENT, 0), -1);
 
     this.pc_blue = new Box2D.b2ParticleColor(0, 0, 255, 1);
     var psd = new Box2D.b2ParticleSystemDef();
     psd.set_radius(this.PARTICLE_SIZE);
     this.particleSystem = this.world.CreateParticleSystem(psd);
-    
-    for (var i = 0; i < Bottle.BALL_COUNT; i++) {
+
+    /* load rube */
+    /*
+    sceneJso = JSON.parse(game.cache.getText('sceneText'));
+
+    if ( loadSceneIntoWorld(sceneJso, world) )
+        console.log("RUBE scene loaded successfully.");
+    else
+        console.log("Failed to load RUBE scene");
+
+    if ( world.images ) {
+        console.log("Loading " + world.images.length + " images");
+    }
+    */
+
+    //PTM = 40;
+    //setViewCenterWorld( {x:0, y:0} );
+
+    /* spawn some particles */
+    for (var i = 0; i < Scene.PARTICLE_COUNT; i++) {
         this.addParticle();
+    }
+    this.balls = [];
+    for (var i = 0; i < Scene.BALL_COUNT; i++) {
+        this.addBall();
     }
 
     this.fps = new FPS();
@@ -39,7 +61,8 @@ function Bottle(canvas) {
         return new Igloo.Program(gl, 'src/' + v, 'src/' + f);
     }
     this.programs = {
-        balls:     program('ball.vert', 'ball.frag'),
+        particles: program('particle.vert', 'particle.frag'),
+        balls:     program('ball.vert',     'ball.frag'),
         blur:      program('identity.vert', 'blur.frag'),
         threshold: program('identity.vert', 'threshold.frag'),
         spikes:    program('identity.vert', 'color.frag')
@@ -56,7 +79,9 @@ function Bottle(canvas) {
     });
 
     this.buffers = {
+        particles:  new Igloo.Buffer(gl),
         balls:  new Igloo.Buffer(gl),
+        colors:  new Igloo.Buffer(gl),
         spikes: new Igloo.Buffer(gl, new Float32Array(spikes)),
         quad:   new Igloo.Buffer(gl, new Float32Array([
                 -1, -1, 1, -1, -1, 1, 1, 1
@@ -71,37 +96,36 @@ function Bottle(canvas) {
 }
 
 
-Bottle.WIDTH = 50;
-Bottle.HEIGHT = 70;
-Bottle.FPS = 60;
-Bottle.BALL_COUNT = 1500;
-Bottle.BALL_RADIUS = 1;
-Bottle.BALL_DENSITY = 1;
-Bottle.BALL_FRICTION = 0;
-Bottle.BALL_RESTITUTION = 0.3;
-Bottle.GRAVITY = new B.Vec2(0, -10);
-Bottle.NGRAVITY = new B.Vec2(0, -Bottle.GRAVITY.get_y());
-Bottle.FLIP_RATE = 5;
-Bottle.SPIKE_THICKNESS = 12;
-Bottle.SPIKE_EXTENT = 20;
+Scene.FPS = 60;
+Scene.PARTICLE_COUNT = 3000;
+Scene.BALL_COUNT = 5;
+Scene.BALL_RADIUS = 3;
+Scene.BALL_DENSITY = 10;
+Scene.BALL_FRICTION = 0;
+Scene.BALL_RESTITUTION = 0.3;
+Scene.GRAVITY = new B.Vec2(0, -10);
+Scene.NGRAVITY = new B.Vec2(0, -Scene.GRAVITY.get_y());
+Scene.FLIP_RATE = 10;
+Scene.SPIKE_THICKNESS = 12;
+Scene.SPIKE_EXTENT = 20;
 
 /**
  * @param {number} x A dimension
  * @returns {number} The smallest power of 2 >= x
  */
-Bottle.highest2 = function(x) {
+Scene.highest2 = function(x) {
     return Math.pow(2, Math.ceil(Math.log(x) / Math.LN2));
 };
 
-Bottle.prototype.texScale = function() {
-    return vec2(Bottle.highest2(this.gl.canvas.width),
-                Bottle.highest2(this.gl.canvas.height));
+Scene.prototype.texScale = function() {
+    return vec2(Scene.highest2(this.gl.canvas.width),
+                Scene.highest2(this.gl.canvas.height));
 };
 
 /**
  * @returns {WebGLTexture} An appropriately initialized intermediate texture
  */
-Bottle.prototype.createTexture = function() {
+Scene.prototype.createTexture = function() {
     var gl = this.gl, tex = gl.createTexture(),
         scale = this.texScale();
     gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -117,7 +141,7 @@ Bottle.prototype.createTexture = function() {
 /**
  * Swaps the front and back textures and bind the back texture.
  */
-Bottle.prototype.swap = function() {
+Scene.prototype.swap = function() {
     var gl = this.gl,
         temp = this.textures.front;
     this.textures.front = this.textures.back;
@@ -132,7 +156,7 @@ Bottle.prototype.swap = function() {
     return this;
 };
 
-Bottle.prototype.buildOuter = function() {
+Scene.prototype.buildOuter = function() {
     var thickness = 0.1;
     var box = new B.PolygonShape(), def = new B.BodyDef();
 
@@ -153,14 +177,14 @@ Bottle.prototype.buildOuter = function() {
     this.world.CreateBody(def).CreateFixture(box, 0);
 };
 
-Bottle.prototype.addSpike = function(pos, dir) {
-    var thickness = Bottle.SPIKE_THICKNESS;
+Scene.prototype.addSpike = function(pos, dir) {
+    var thickness = Scene.SPIKE_THICKNESS;
     var def = new B.BodyDef();
     def.set_position(pos);
     var verts = [
-        new B.Vec2(dir * this.width / 2 - pos.get_x(), dir *  thickness / 2),
+        new B.Vec2(dir * this.width / 3 - pos.get_x(), dir *  thickness / 2),
         new B.Vec2(0, 0),
-        new B.Vec2(dir * this.width / 2 - pos.get_x(), dir * -thickness / 2)
+        new B.Vec2(dir * this.width / 4 - pos.get_x(), dir * -thickness / 2)
     ];
     this.polys.push({pos: pos, verts: verts});
     var fix = new B.FixtureDef();
@@ -170,12 +194,12 @@ Bottle.prototype.addSpike = function(pos, dir) {
     this.world.CreateBody(def).CreateFixture(fix);
 };
 
-Bottle.prototype.random = function() {
+Scene.prototype.random = function() {
     return new B.Vec2(Math.random() * this.width - (this.width / 2),
                       Math.random() * this.height - (this.height / 2));
 };
 
-Bottle.prototype.addParticle = function(pos) {
+Scene.prototype.addParticle = function(pos) {
     pos = pos || this.random();
     var pgd = new Box2D.b2ParticleGroupDef();
     var shape = new Box2D.b2CircleShape();
@@ -187,42 +211,52 @@ Bottle.prototype.addParticle = function(pos) {
     group = this.particleSystem.CreateParticleGroup(pgd);
 }
 
-Bottle.prototype.addBall = function(pos) {
+Scene.prototype.addBall = function(pos) {
     pos = pos || this.random();
     var def = new B.BodyDef();
     def.set_position(pos);
     def.set_type(B.b2_dynamicBody);
     var circle = new B.CircleShape();
-    circle.set_m_radius(Bottle.BALL_RADIUS);
+    circle.set_m_radius(Scene.BALL_RADIUS);
     var mass = new B.FixtureDef();
     mass.set_shape(circle);
-    mass.set_density(Bottle.BALL_DENSITY);
-    mass.set_friction(Bottle.BALL_FRICTION);
-    mass.set_restitution(Bottle.BALL_RESTITUTION);
+    mass.set_density(Scene.BALL_DENSITY);
+    mass.set_friction(Scene.BALL_FRICTION);
+    mass.set_restitution(Scene.BALL_RESTITUTION);
     this.balls.push(this.world.CreateBody(def).CreateFixture(mass));
 };
 
-Bottle.prototype.render = function() {
+Scene.prototype.render = function() {
     var gl = this.gl;
     var w = this.gl.canvas.width, h = this.gl.canvas.height;
     var sx = w / this.width * 2, sy = h / this.height * 2;
 
+
     /* Update balls vertex attribute. */
+    var pos = new Float32Array(this.balls.length * 2);
+    for (var i = 0; i < this.balls.length; i++) {
+        var p = this.balls[i].GetBody().GetPosition();
+        pos[i * 2 + 0] = p.get_x() / w * sx;
+        pos[i * 2 + 1] = p.get_y() / h * sy;
+    }
+    this.buffers.balls.update(pos);
+
+    /* Update particles vertex attribute. */
     var count = this.particleSystem.GetParticleCount();
-    var offset = this.particleSystem.GetPositionBuffer();
-    var raw_pos = new Float32Array(Module.HEAPU8.buffer, offset.e, count * 2);
+    var pos_offset = this.particleSystem.GetPositionBuffer();
+    var raw_pos = new Float32Array(Module.HEAPU8.buffer, pos_offset.e, count * 2);
     var pos = new Float32Array(count * 2);
     for (var i = 0; i < count; i++) {
         pos[i * 2 + 0] = raw_pos[i * 2 + 0] / w * sx;
         pos[i * 2 + 1] = raw_pos[i * 2 + 1] / h * sy;
     }
-    this.buffers.balls.update(pos);
+    this.buffers.particles.update(pos);
 
     this.swap();
     gl.bindTexture(gl.TEXTURE_2D, this.textures.front);
-    this.programs.balls.use()
-        .attrib('ball', this.buffers.balls, 2)
-        .uniform('size', this.PARTICLE_SIZE * sx)
+    this.programs.particles.use()
+        .attrib('ball', this.buffers.particles, 2)
+        .uniform('size', this.PARTICLE_SIZE * sx * 0.9) // reduce the rendered particle to 90%
         .draw(gl.POINTS, count);
     this.swap();
 
@@ -248,21 +282,28 @@ Bottle.prototype.render = function() {
         .uniform('scale', this.texScale())
         .uniform('copy', !this.doThreshold, true)
         .uniform('threshold', this.threshold)
+        .uniform('color', vec4(72.0/255, 119.0/255, 167.0/255, 1.0))
         .draw(gl.TRIANGLE_STRIP, 4);
 
     this.programs.spikes.use()
         .attrib('position', this.buffers.spikes, 2)
         .uniform('color', vec4(0.5, 0.5, 0.5, 1.0))
         .draw(gl.TRIANGLES, this.polys.length * 3);
+
+    this.programs.balls.use()
+        .attrib('ball', this.buffers.balls, 2)
+        .uniform('size', Scene.BALL_RADIUS * sx)
+        .uniform('color', vec4(215./255, 96./255, 24./255, 1.0))
+        .draw(gl.POINTS, this.balls.length);
 };
 
-Bottle.prototype.step = function() {
+Scene.prototype.step = function() {
     this.fps.tick();
-    this.time += 1 / Bottle.FPS;
-    if (Math.sin(this.time / Bottle.FLIP_RATE * Math.PI) < 0) {
-        this.world.SetGravity(Bottle.NGRAVITY);
+    this.time += 1 / Scene.FPS;
+    if (Math.sin(this.time / Scene.FLIP_RATE * Math.PI) < 0) {
+        this.world.SetGravity(Scene.NGRAVITY);
     } else {
-        this.world.SetGravity(Bottle.GRAVITY);
+        this.world.SetGravity(Scene.GRAVITY);
     }
     this.world.Step(1 / 30, 8, 3);
 };
