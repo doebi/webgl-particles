@@ -1,4 +1,5 @@
 var scene = null;
+var stats = null;
 window.addEventListener('load', function() {
     var w = window.innerWidth;
     var h = window.innerHeight;
@@ -8,11 +9,15 @@ window.addEventListener('load', function() {
     canvas.width = w;
     canvas.height = h;
     scene = new Scene(canvas);
+    stats = new Stats();
+    document.getElementById("data").appendChild(stats.domElement);
     function step() {
         scene.step();
     }
     function render() {
+        stats.begin();
         scene.render();
+        stats.end();
         window.requestAnimationFrame(render);
     }
     window.requestAnimationFrame(render);

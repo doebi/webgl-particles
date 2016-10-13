@@ -24,12 +24,10 @@ function Scene(canvas) {
     /* load rube */
     /*
     sceneJso = JSON.parse(game.cache.getText('sceneText'));
-
     if ( loadSceneIntoWorld(sceneJso, world) )
         console.log("RUBE scene loaded successfully.");
     else
         console.log("Failed to load RUBE scene");
-
     if ( world.images ) {
         console.log("Loading " + world.images.length + " images");
     }
@@ -95,7 +93,6 @@ function Scene(canvas) {
     };
 }
 
-
 Scene.FPS = 60;
 Scene.PARTICLE_COUNT = 3000;
 Scene.BALL_COUNT = 5;
@@ -107,7 +104,7 @@ Scene.GRAVITY = new B.Vec2(0, -10);
 Scene.NGRAVITY = new B.Vec2(0, -Scene.GRAVITY.get_y());
 Scene.FLIP_RATE = 10;
 Scene.SPIKE_THICKNESS = 12;
-Scene.SPIKE_EXTENT = 20;
+Scene.SPIKE_EXTENT = 50;
 
 /**
  * @param {number} x A dimension
@@ -182,9 +179,9 @@ Scene.prototype.addSpike = function(pos, dir) {
     var def = new B.BodyDef();
     def.set_position(pos);
     var verts = [
-        new B.Vec2(dir * this.width / 3 - pos.get_x(), dir *  thickness / 2),
+        new B.Vec2(dir * this.width / 2 - pos.get_x(), dir *  thickness / 2),
         new B.Vec2(0, 0),
-        new B.Vec2(dir * this.width / 4 - pos.get_x(), dir * -thickness / 2)
+        new B.Vec2(dir * this.width / 2 - pos.get_x(), dir * -thickness / 2)
     ];
     this.polys.push({pos: pos, verts: verts});
     var fix = new B.FixtureDef();
@@ -206,7 +203,8 @@ Scene.prototype.addParticle = function(pos) {
     shape.set_m_radius(this.PARTICLE_SPAWN_SIZE);
     pgd.set_shape(shape);
     pgd.set_color(this.pc_blue);
-    pgd.set_flags((1<<14) + (1<<8));
+    // need to add flag (1<<14) for contact listener
+    // pgd.set_flags(1<<5);
     shape.set_m_p(pos);
     group = this.particleSystem.CreateParticleGroup(pgd);
 }
@@ -243,6 +241,7 @@ Scene.prototype.render = function() {
 
     /* Update particles vertex attribute. */
     var count = this.particleSystem.GetParticleCount();
+    //console.log(count);
     var pos_offset = this.particleSystem.GetPositionBuffer();
     var raw_pos = new Float32Array(Module.HEAPU8.buffer, pos_offset.e, count * 2);
     var pos = new Float32Array(count * 2);
@@ -282,7 +281,7 @@ Scene.prototype.render = function() {
         .uniform('scale', this.texScale())
         .uniform('copy', !this.doThreshold, true)
         .uniform('threshold', this.threshold)
-        .uniform('color', vec4(72.0/255, 119.0/255, 167.0/255, 1.0))
+        .uniform('color', vec4(1.0, 1.0, 1.0, 1.0))
         .draw(gl.TRIANGLE_STRIP, 4);
 
     this.programs.spikes.use()
